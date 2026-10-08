@@ -1,0 +1,14 @@
+---
+title: "Project2-2"
+author: "Cecilia De La Fuente Chavez"
+format: html
+execute:
+  echo: true
+editor: visual
+---
+
+## Approach Deliverable
+
+### Overview
+
+The second dataset I chose for Project 2 is Ellie's [countries by electricity production from Wikipedia](https://en.wikipedia.org/wiki/List_of_countries_by_electricity_production). The data is arranged with each country as a row and columns representing different types of electricity generation. Although the dataset is presented in a table, it is not tidy because some of the columns have multi-level headers. For example, coal and gas are grouped under fossil fuels. These categories and the individual generation methods should be represented as variables. I will retain the country and determine how the grouped categories and individual generation methods can be represented in a tidy format. I will probably use `pivot_longer()` and other `dplyr` functions to reorganize the columns. For the analysis, I could explore differences in electricity generation between countries. A couple of questions are which countries have the most renewable electricity production and the lowest fossil-fuel production.
