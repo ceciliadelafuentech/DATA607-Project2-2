@@ -12,3 +12,156 @@ editor: visual
 ### Overview
 
 The second dataset I chose for Project 2 is Ellie's [countries by electricity production from Wikipedia](https://en.wikipedia.org/wiki/List_of_countries_by_electricity_production). The data is arranged with each country as a row and columns representing different types of electricity generation. Although the dataset is presented in a table, it is not tidy because some of the columns have multi-level headers. For example, coal and gas are grouped under fossil fuels. These categories and the individual generation methods should be represented as variables. I will retain the country and determine how the grouped categories and individual generation methods can be represented in a tidy format. I will probably use `pivot_longer()` and other `dplyr` functions to reorganize the columns. For the analysis, I could explore differences in electricity generation between countries. A couple of questions are which countries have the most renewable electricity production and the lowest fossil-fuel production.
+
+## Code Base Deliverable
+
+### Load libraries
+
+```{r}
+library(tidyverse)
+```
+
+### Data and transformations
+
+Load CSV from Github
+
+```{r}
+df <- read_csv(   "https://raw.githubusercontent.com/ceciliadelafuentech/DATA607-Project2-2/refs/heads/main/countries_electricity_production.csv" )    
+
+head(df)
+```
+
+Rename the columns with descriptive names to identify each country's total electricity production, generation methods, and reporting year.
+
+```{r}
+names(df) <- c(
+  "country",
+  "total_twh",
+  "coal_twh",
+  "gas_twh",
+  "other_fossil_twh",
+  "nuclear_twh",
+  "hydro_twh",
+  "wind_twh",
+  "solar_twh",
+  "bioenergy_twh",
+  "other_renewables_twh",
+  "year"
+)
+```
+
+Convert the year to a numeric value, removing any extra characters such as footnote markers. Remove rows without a country name, including the extra header row from the original table.
+
+```{r}
+df <- df |>
+  mutate(
+    year = readr::parse_number(as.character(year))
+  ) |>
+  filter(!is.na(country))
+```
+
+Clean the dataset by removing extra spaces from country names, converting electricity production values to numeric format, and removing rows without a country name.
+
+```{r}
+electricity_prod <- df |>
+  mutate(
+    country = trimws(country),
+    across(
+      c(
+        total_twh, coal_twh, gas_twh, other_fossil_twh,
+        nuclear_twh, hydro_twh, wind_twh, solar_twh,
+        bioenergy_twh, other_renewables_twh
+      ),
+      ~ readr::parse_number(as.character(.x))
+    )
+  ) |>
+  filter(!is.na(country))
+
+head(electricity_prod)
+```
+
+Transform the dataset from wide to long format using pivot_longer(), placing each electricity generation method in its own row. It removes the \_twh suffix from method names, groups the methods into fossil fuels, nuclear, and renewables, and keeps the country, generation type, method, production amount, and reporting year for analysis.
+
+```{r}
+electricity_prod_long <- electricity_prod |>
+  pivot_longer(
+    cols = c(
+      coal_twh, gas_twh, other_fossil_twh,
+      nuclear_twh, hydro_twh, wind_twh, solar_twh,
+      bioenergy_twh, other_renewables_twh
+    ),
+    names_to = "generation_method",
+    values_to = "electricity_twh"
+  ) |>
+  filter(!is.na(country)) |>
+  mutate(
+    generation_method = sub("_twh$", "", generation_method),
+    generation_type = case_when(
+      generation_method %in% c("coal", "gas", "other_fossil") ~ "Fossil fuels",
+      generation_method == "nuclear" ~ "Nuclear",
+      TRUE ~ "Renewables"
+    )
+  ) |>
+  select(country, generation_type, generation_method, electricity_twh, year)
+```
+
+Display sample of long format dataframe
+
+```{r}
+head(electricity_prod_long)
+```
+
+Summarize electricity production by country, reporting year, and generation type, calculating the total terawatt-hours (TWh) for each category. Transform the data back to wide format, with separate columns for fossil fuels, nuclear, and renewables. This makes it easier to compare production across generation types and identify countries with the highest renewable electricity production.
+
+```{r}
+country_summary <- electricity_prod_long |>
+  group_by(country, year, generation_type) |>
+  summarise(
+    total_twh = sum(electricity_twh, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  pivot_wider(
+    names_from = generation_type,
+    values_from = total_twh
+  )
+
+head(country_summary)
+```
+
+Identify the ten countries with the highest renewable electricity production by filtering out missing values and sorting countries in descending order of renewable production.
+
+```{r}
+top_renewables <- country_summary |>
+  filter(!is.na(Renewables)) |>
+  arrange(desc(Renewables)) |>
+  slice_head(n = 10)
+
+head(top_renewables)
+```
+
+Creates a horizontal bar chart comparing renewable electricity production among the ten leading countries. The countries are ordered by production in terawatt-hours (TWh), making it easier to compare their renewable electricity output.
+
+```{r}
+ggplot(
+  top_renewables,
+  aes(x = reorder(country, Renewables), y = Renewables)
+) +
+  geom_col(fill = "darkgreen") +
+  coord_flip() +
+  labs(
+    title = "Top 10 by Renewable Electricity Production",
+    x = "Country",
+    y = "Renewable Electricity (TWh)"
+  ) +
+  theme_minimal()
+```
+
+## Conclusion
+
+The dataset was transformed from wide to long format using pivot_longer(). The country names, electricity generation methods, production values, and reporting years were organized into separate variables, making the data easier to analyze. The analysis summarized electricity production by country and generation type, then identified the ten countries with the highest renewable electricity production. A bar chart was created to compare renewable electricity production across these countries. One limitation is that the reporting year varies by country, so the comparisons do not represent exactly the same year for every country. For future analysis, the dataset could be used to compare the percentage of electricity generated from renewable and fossil-fuel sources in each country.
+
+## AI Assistance
+
+ChatGPT was used as a supplemental tool to help understand R syntax, troubleshoot code, explain data tidying and transformation steps, and clarify the analysis of electricity production across countries (OpenAI, 2026).
+
+OpenAI. (2026). ChatGPT \[Generative AI chat\]. <https://chatgpt.com/>
